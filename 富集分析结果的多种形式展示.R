@@ -17,30 +17,6 @@ setwd("D:/language_learn/R_universal/2021/2021.01--纯代码搬运Y叔的富集�
 
 if(!require(clusterProfiler)) BiocManager::install("clusterProfiler")
 if(!require(dplyr)) install.packages("dplyr")
-#> Loading required package: dplyr
-#> 
-#> Attaching package: 'dplyr'
-#> The following object is masked from 'package:AnnotationDbi':
-#> 
-#>     select
-#> The following objects are masked from 'package:IRanges':
-#> 
-#>     collapse, desc, intersect, setdiff, slice, union
-#> The following objects are masked from 'package:S4Vectors':
-#> 
-#>     first, intersect, rename, setdiff, setequal, union
-#> The following object is masked from 'package:Biobase':
-#> 
-#>     combine
-#> The following objects are masked from 'package:BiocGenerics':
-#> 
-#>     combine, intersect, setdiff, union
-#> The following objects are masked from 'package:stats':
-#> 
-#>     filter, lag
-#> The following objects are masked from 'package:base':
-#> 
-#>     intersect, setdiff, setequal, union
 if(!require(ggplot2)) install.packages("ggplot2")
 library(clusterProfiler)
 library(dplyr)
