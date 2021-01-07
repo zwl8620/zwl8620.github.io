@@ -9,6 +9,340 @@
 #--------------------------------------------------------------------------->
 
 # 以DSS包进行BS数据差异甲基化分析为例
+#! /path/to/Rscript
+
+# 目的：使用R包DSS进行差异甲基化分析，这份脚本记录的是如何从bismark的结果转化为DSS包的输入
+
+# Note:
+# 1. 读取bismark的"bismark_methylation_extractor"功能生成的"*bismark_cov.gz"的格式文件，格式如下：
+# 1：染色体号，2：start，3：end，4：甲基化比率，5：甲基化数目，6：未甲基化数目
+
+# 2. DSS包要求输入的文件格式如下：第一列为染色体，第二列为位置，第三列为total reads，第四列为甲基化的reads
+
+# 3. 我看DSS包教程没有对输入文件的位点进行过滤，暂时不设置过滤步骤；
+
+
+
+
+
+#------------------------------PART I：加载R包
+### 加载R packages
+library(DSS)
+require(bsseq) 
+library(data.table)
+library(stringr)
+library(tidyverse)
+
+
+
+
+
+#------------------------------PART II：读取输入文件并转化为DSS包要求的格式，并进行位点过滤（重点）
+### 这部分主要是包括两个内容需要注意：
+# 1. 读取bismark的"bismark_methylation_extractor"功能生成的"*bismark_cov.gz"的格式文件，并对位点进行过滤
+# 2. 按照DSS包输入格式的要求进行相应处理，并存入R变量中
+
+
+
+# 输入文件的路径
+bismarkcov <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/data/bismark_cov/"
+setwd(bismarkcov)
+
+
+
+### 注：如下的循环函数将所有文件读入到一个变量中
+allDat <- lapply(list.files(path = bismarkcov, pattern='*.bismark.cov.gz'), function(f){
+  # f="GSM1251242_H2R_d0.cpgs.txt.gz";
+  print(f);
+  tmp=fread(file.path(bismarkcov,f), header = F, sep = "\t")
+  chr=as.character(tmp$V1)
+  pos=as.character(tmp$V2)
+  tmp$V7=as.numeric(tmp$V5)+as.numeric(tmp$V6)
+  # tmp[,7] <- tmp[,5]+tmp[,6]
+  newTmp=as.data.frame(tmp[,c(1,2,7,5)])
+  colnames(newTmp)=c('chr', 'pos' ,'N' ,'X')
+  return(newTmp)
+})
+# mode(allDat[[1]])
+dim(allDat[[1]]);head(allDat[[1]]);
+
+
+
+# 值得注意的是每个样本的位点数量不一致
+# do.call(rbind,lapply(allDat,dim))
+# do.call(cbind,lapply(allDat,head))
+
+
+# 获取每个样本的唯一识别符
+# sn=gsub('_R1_val_1_bismark_bt2_pe.deduplicated.bismark.cov.gz','',list.files(bismarkcov, pattern='*.bismark.cov.gz'))
+# sn
+# [1] "FZC-chu"  "FZC-fu"   "FZC-huan" "HQE-chu"  "HQE-fu"   "HQE-huan" "LRL"      "LRL-D63"  "ZJR"      "ZJR-D46" 
+
+# FZC-chu	1
+# FZC-fu	2
+# FZC-huan	3
+# HQE-chu	4
+# HQE-fu	5
+# HQE-huan	6
+# LRL	7
+# LRL-D63	8
+# ZJR	9
+# ZJR-D46	10
+
+
+
+
+
+
+
+#------------------------------PART III: 执行DMR/DML分析；注意参数的选择
+
+# 设置工作目录
+setwd("/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/Bsobj_Rdata")
+
+
+# 单样本VS单样本
+#代码如下，重要就是构建对象和做统计检验
+# if(T){
+# #  BSobj <- makeBSseqData(allDat[[7:8]], c("LRL", "LRL-D63") )[1:1000,] #"allDat[[7:8]]" 此法行不通
+#  BSobj <- makeBSseqData(list(allDat[[7]], allDat[[8]]), c("LRL", "LRL-D63") )[1:1000,]
+#  BSobj
+#  save(BSobj,file = 'single-BSobj_LRL_vs_LRL-D63.Rdata')
+#  # There is no biological replicates in at least one condition.
+#  dmlTest <- DMLtest(BSobj, group1=c("LRL"), group2=c("LRL-D63"),smoothing=TRUE)
+#  head(dmlTest)
+# }
+
+# 单样本VS单样本
+
+# 1.构建对象
+# Bsobj_FZCchu_vs_FZCfu<- makeBSseqData(list(allDat[[1]], allDat[[2]]), c("FZCchu", "FZCfu"))
+# Bsobj_FZCchu_vs_FZChuan<- makeBSseqData(list(allDat[[1]], allDat[[3]]), c("FZCchu", "FZChuan"))
+# Bsobj_FZCfu_vs_FZChuan<- makeBSseqData(list(allDat[[2]], allDat[[3]]), c("FZCfu", "FZChuan"))
+# Bsobj_HQEchu_vs_HQEfu<- makeBSseqData(list(allDat[[4]], allDat[[5]]), c("HQEchu", "HQEfu"))
+# Bsobj_HQEchu_vs_HQEhuan<- makeBSseqData(list(allDat[[4]], allDat[[6]]), c("HQEchu", "HQEhuan"))
+# Bsobj_HQEfu_vs_HQEhuan<- makeBSseqData(list(allDat[[5]], allDat[[6]]), c("HQEfu", "HQEhuan"))
+# Bsobj_LRL_vs_LRLd63<- makeBSseqData(list(allDat[[7]], allDat[[8]]), c("LRL", "LRLd63"))
+# Bsobj_ZJR_vs_ZJRd46<- makeBSseqData(list(allDat[[9]], allDat[[10]]), c("ZJR", "ZJRd46"))
+
+# 2020-10-22
+# save(Bsobj_FZCchu_vs_FZCfu, file = "single-Bsobj_FZCchu_vs_FZCfu.Rdata")
+# save(Bsobj_FZCchu_vs_FZChuan, file = "single-Bsobj_FZCchu_vs_FZChuan.Rdata")
+# save(Bsobj_FZCfu_vs_FZChuan, file = "single-Bsobj_FZCfu_vs_FZChuan.Rdata")
+# save(Bsobj_HQEchu_vs_HQEfu, file = "single-Bsobj_HQEchu_vs_HQEfu.Rdata")
+# save(Bsobj_HQEchu_vs_HQEhuan, file = "single-Bsobj_HQEchu_vs_HQEhuan.Rdata")
+# save(Bsobj_HQEfu_vs_HQEhuan, file = "single-Bsobj_HQEfu_vs_HQEhuan.Rdata")
+# save(Bsobj_LRL_vs_LRLd63, file = "single-Bsobj_LRL_vs_LRLd63.Rdata")
+# save(Bsobj_ZJR_vs_ZJRd46, file = "single-Bsobj_ZJR_vs_ZJRd46.Rdata")
+
+
+
+# 2020-10-23
+# save.image(file = "8_single_Bsobj.RData") #保存当前所有变量
+
+
+
+# 2.统计检验
+# # 等上面的构建命令都跑完之后，接着进行分析，第一步就是要加载上面保存的构建好的DSS对象
+# # 统计检验时间太长了，先保存为".Rdata"，然后再进行后面的DMR检测
+Rdata_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/Bsobj_Rdata/single-Bsobj-2020-10-22"
+
+# parameter1: WGBS is recommended to set "smoothing=T"
+
+# parameter2: "DMLtest" function will used all cores if we don't set 
+cores_use = MulticoreParam(workers=25, progressbar=TRUE)
+
+# 1 
+load(file.path(Rdata_path, "single-Bsobj_FZCchu_vs_FZCfu.Rdata"))
+dmlTest_FZCchu_vs_FZCfu <- DMLtest(Bsobj_FZCchu_vs_FZCfu, group1=c("FZCchu"), group2=c("FZCfu"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_FZCchu_vs_FZCfu, file = "dmlTest_FZCchu_vs_FZCfu.Rdata")
+
+# part1: Call DML by using callDML function. The results DMLs are sorted by the significance.
+# To detect loci with difference greater than 0.1, do:
+load(file = "dmlTest_FZCchu_vs_FZCfu.Rdata")
+dml_FZCchu_vs_FZCfu <- callDML(dmlTest_FZCchu_vs_FZCfu, delta=0.1, p.threshold=0.001)
+write.table(dml_FZCchu_vs_FZCfu, file = "dml_FZCchu_vs_FZCfu.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+# part2: Call DMR by using callDML function
+##To detect regions with difference greater than 0.1, do:
+dmrs_FZCchu_vs_FZCfu <- callDMR(dmlTest_FZCchu_vs_FZCfu, delta=0.1, p.threshold=0.001)
+# other parameters:
+#                              minCG=3,
+#                              dis.merge=50
+#                              minlen=50
+write.table(dmrs_FZCchu_vs_FZCfu, file = "dmrs_FZCchu_vs_FZCfu.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+# 2
+load(file.path(Rdata_path, "single-Bsobj_FZCchu_vs_FZChuan.Rdata"))
+dmlTest_FZCchu_vs_FZChuan <- DMLtest(Bsobj_FZCchu_vs_FZChuan, group1=c("FZCchu"), group2=c("FZChuan"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_FZCchu_vs_FZChuan, file = "dmlTest_FZCchu_vs_FZChuan.Rdata")
+
+load(file = "dmlTest_FZCchu_vs_FZChuan.Rdata")
+dml_FZCchu_vs_FZChuan <- callDML(dmlTest_FZCchu_vs_FZChuan, delta=0.1, p.threshold=0.001)
+write.table(dml_FZCchu_vs_FZChuan, file = "dml_FZCchu_vs_FZChuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+dmrs_FZCchu_vs_FZChuan <- callDMR(dmlTest_FZCchu_vs_FZChuan, delta=0.1, p.threshold=0.001)
+# other may be useful parameters: minCG=3, dis.merge=50, minlen=50
+write.table(dmrs_FZCchu_vs_FZChuan, file = "dmrs_FZCchu_vs_FZChuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+# 3
+load(file.path(Rdata_path, "single-Bsobj_FZCfu_vs_FZChuan.Rdata"))
+dmlTest_FZCfu_vs_FZChuan <- DMLtest(Bsobj_FZCfu_vs_FZChuan, group1=c("FZCfu"), group2=c("FZChuan"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_FZCfu_vs_FZChuan, file = "dmlTest_FZCfu_vs_FZChuan.Rdata")
+
+load(file = "dmlTest_FZCfu_vs_FZChuan.Rdata")
+dml_FZCfu_vs_FZChuan <- callDML(dmlTest_FZCfu_vs_FZChuan, delta=0.1, p.threshold=0.001)
+write.table(dml_FZCfu_vs_FZChuan, file = "dml_FZCfu_vs_FZChuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+dmrs_FZCfu_vs_FZChuan <- callDMR(dmlTest_FZCfu_vs_FZChuan, delta=0.1, p.threshold=0.001)
+# other may be useful parameters: minCG=3, dis.merge=50, minlen=50
+write.table(dmrs_FZCfu_vs_FZChuan, file = "dmrs_FZCfu_vs_FZChuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+
+
+# 4
+load(file.path(Rdata_path, "single-Bsobj_HQEchu_vs_HQEfu.Rdata"))
+dmlTest_HQEchu_vs_HQEfu <- DMLtest(Bsobj_HQEchu_vs_HQEfu, group1=c("HQEchu"), group2=c("HQEfu"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_HQEchu_vs_HQEfu, file = "dmlTest_HQEchu_vs_HQEfu.Rdata")
+
+load(file = "dmlTest_HQEchu_vs_HQEfu.Rdata")
+dml_HQEchu_vs_HQEfu <- callDML(dmlTest_HQEchu_vs_HQEfu, delta=0.1, p.threshold=0.001)
+write.table(dml_HQEchu_vs_HQEfu, file = "dml_HQEchu_vs_HQEfu.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+dmrs_HQEchu_vs_HQEfu <- callDMR(dmlTest_HQEchu_vs_HQEfu, delta=0.1, p.threshold=0.001)
+# other may be useful parameters: minCG=3, dis.merge=50, minlen=50
+write.table(dmrs_HQEchu_vs_HQEfu, file = "dmrs_HQEchu_vs_HQEfu.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+
+
+# 5
+load(file.path(Rdata_path, "single-Bsobj_HQEchu_vs_HQEhuan.Rdata"))
+dmlTest_HQEchu_vs_HQEhuan <- DMLtest(Bsobj_HQEchu_vs_HQEhuan, group1=c("HQEchu"), group2=c("HQEhuan"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_HQEchu_vs_HQEhuan, file = "dmlTest_HQEchu_vs_HQEhuan.Rdata")
+
+load(file = "dmlTest_HQEchu_vs_HQEhuan.Rdata")
+dml_HQEchu_vs_HQEhuan <- callDML(dmlTest_HQEchu_vs_HQEhuan, delta=0.1, p.threshold=0.001)
+write.table(dml_HQEchu_vs_HQEhuan, file = "dml_HQEchu_vs_HQEhuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+dmrs_HQEchu_vs_HQEhuan <- callDMR(dmlTest_HQEchu_vs_HQEhuan, delta=0.1, p.threshold=0.001)
+# other may be useful parameters: minCG=3, dis.merge=50, minlen=50
+write.table(dmrs_HQEchu_vs_HQEhuan, file = "dmrs_HQEchu_vs_HQEhuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+
+# 6
+load(file.path(Rdata_path, "single-Bsobj_HQEfu_vs_HQEhuan.Rdata"))
+dmlTest_HQEfu_vs_HQEhuan <- DMLtest(Bsobj_HQEfu_vs_HQEhuan, group1=c("HQEfu"), group2=c("HQEhuan"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_HQEfu_vs_HQEhuan, file = "dmlTest_HQEfu_vs_HQEhuan.Rdata")
+
+dml_HQEfu_vs_HQEhuan <- callDML(dmlTest_HQEfu_vs_HQEhuan, delta=0.1, p.threshold=0.001)
+write.table(dml_HQEfu_vs_HQEhuan, file = "dml_HQEfu_vs_HQEhuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+dmrs_HQEfu_vs_HQEhuan <- callDMR(dmlTest_HQEfu_vs_HQEhuan, delta=0.1, p.threshold=0.001)
+# other may be useful parameters: minCG=3, dis.merge=50, minlen=50
+write.table(dmrs_HQEfu_vs_HQEhuan, file = "dmrs_HQEfu_vs_HQEhuan.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+
+
+# 7
+load(file.path(Rdata_path, "single-Bsobj_LRL_vs_LRLd63.Rdata"))
+dmlTest_LRL_vs_LRLd63 <- DMLtest(Bsobj_LRL_vs_LRLd63, group1=c("LRL"), group2=c("LRLd63"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_LRL_vs_LRLd63, file = "dmlTest_LRL_vs_LRLd63.Rdata")
+
+dml_LRL_vs_LRLd63 <- callDML(dmlTest_LRL_vs_LRLd63, delta=0.1, p.threshold=0.001)
+write.table(dml_LRL_vs_LRLd63, file = "dml_LRL_vs_LRLd63.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+dmrs_LRL_vs_LRLd63 <- callDMR(dmlTest_LRL_vs_LRLd63, delta=0.1, p.threshold=0.001)
+# other may be useful parameters: minCG=3, dis.merge=50, minlen=50
+write.table(dmrs_LRL_vs_LRLd63, file = "dmrs_LRL_vs_LRLd63.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+
+
+
+# 8
+load(file.path(Rdata_path, "single-Bsobj_ZJR_vs_ZJRd46.Rdata"))
+dmlTest_ZJR_vs_ZJRd46 <- DMLtest(Bsobj_ZJR_vs_ZJRd46, group1=c("ZJR"), group2=c("ZJRd46"),smoothing=TRUE, BPPAR = cores_use)
+save(dmlTest_ZJR_vs_ZJRd46, file = "dmlTest_ZJR_vs_ZJRd46.Rdata")
+
+load(file = "dmlTest_ZJR_vs_ZJRd46.Rdata")
+dml_ZJR_vs_ZJRd46 <- callDML(dmlTest_ZJR_vs_ZJRd46, delta=0.1, p.threshold=0.001)
+write.table(dml_ZJR_vs_ZJRd46, file = "dml_ZJR_vs_ZJRd46.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+dmrs_ZJR_vs_ZJRd46 <- callDMR(dmlTest_ZJR_vs_ZJRd46, delta=0.1, p.threshold=0.001)
+# other may be useful parameters: minCG=3, dis.merge=50, minlen=50
+write.table(dmrs_ZJR_vs_ZJRd46, file = "dmrs_ZJR_vs_ZJRd46.txt", sep = "\t", row.names = F,col.names = T, quote = F)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#------------------------------PART III: 执行DMR/DML分析；注意参数的选择
+
+
+# 不管是哪种比较，最后都得到dmlTest变量走后面的流程，包括确定显著差异甲基化区域及基因，以及可视化展现，代码如下：
+# 1.Call DML by using callDML function. The results DMLs are sorted by the significance.
+dmls <- callDML(dmlTest, p.threshold=0.001)
+head(dmls)
+##To detect loci with difference greater than 0.1, do:
+dmls2 <- callDML(dmlTest, delta=0.1, p.threshold=0.001)
+head(dmls2)
+
+
+
+# 2.Call DMR by using callDML function
+##Regions with many statistically significant CpG sites are identified as DMRs.
+dmrs <- callDMR(dmlTest, p.threshold=0.01)
+head(dmrs)
+
+##To detect regions with difference greater than 0.1, do:
+dmrs2 <- callDMR(dmlTest, delta=0.1, p.threshold=0.05)
+head(dmrs2)
+
+##来自书籍(Approaches for the Analysis and Interpretation of Whole Genome Bisulfite Sequencing Data)的参数
+dmrs <- callDMR(dmlTest, delta=0.1, minCG=3,
+                +   p.threshold=0.001, minlen=50,
+                +   dis.merge=100)
+
+# Note: 参数都是可以调整的，统计学显著性的阈值要多试几次才可能得到理想结果
+
+
+
+
+
+
+
+#------------------------------PART IV: DMR/DML visualize
+# The DMRs can be visualized using showOneDMR function
+showOneDMR(dmrs[1,], BSobj)
+
+
+
+
+
 
 
 
