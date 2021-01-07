@@ -385,10 +385,10 @@ showOneDMR(dmrs[1,], BSobj)
   # 为 每个位点或DMR 添加随机正负链信息（可能不合理，但目前尚未找到合适的输入格式的文件，暂且先用）；
   # 注意这里的sample函数的使用，这里的"rownames"不能替换为nrow，rownames>这里代表着总共有nrow个不同的数值
 
-dss_DMRs_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/single-8-DMRs/"
+input_file_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/single-8-DMRs/"
 setwd(dss_DMRs_path)
-bed_format_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/DSS_DMR_To_annotate_bed/single-8-DMRs_To_annotate_bed/"
-txtlist <- list.files(path = dss_DMRs_path, pattern = "dmrs*")
+output_file_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/DSS_DMR_To_annotate_bed/single-8-DMRs_To_annotate_bed/"
+txtlist <- list.files(path = input_file_path, pattern = ".txt")
 txtlist
 
 
@@ -399,7 +399,7 @@ for (i in 1:length(txtlist)){
   # note the string split character!
   file_ID <- unlist(strsplit(txtlist[i], split = ".txt"))
   bed_format_filename = paste0("annotate_", file_ID[1], ".bed")
-  write.table(bed_format, file.path(bed_format_path, bed_format_filename), sep = "\t", row.names=F, col.names=F, quote = F)
+  write.table(bed_format, file.path(output_file_path, bed_format_filename), sep = "\t", row.names=F, col.names=F, quote = F)
 }
 
 
