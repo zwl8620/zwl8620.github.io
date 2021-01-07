@@ -1,0 +1,94 @@
+#--------------------------------------------------------------------------->
+# Time: 2021.01.07 
+# Language: R, shell
+#--------------------------------------------------------------------------->
+
+
+#--------------------------------------------------------------------------->
+# 第一步：BS数据差异甲基化分析（DMC/DMR）
+#--------------------------------------------------------------------------->
+
+# 以DSS包进行BS数据差异甲基化分析为例
+
+
+
+
+
+
+
+
+
+
+
+
+
+#--------------------------------------------------------------------------->
+# 第二步：将DMR分析结果文件进行微调，以获取注释基因组的标准bed格式文件
+#--------------------------------------------------------------------------->
+
+# 输入文件格式：
+# chr     start   end     length  nCG     meanMethy1      meanMethy2      diff.Methy      areaStat
+# chr20   23015717        23016171        455     114     0.278766061656626       0.857274397833468       -0.578508336176842      -635.61361065457
+# chr6    107955994       107956304       311     122     0.321516723259821       0.8263655457263 -0.504848822466479      -550.066439974452
+# chr20   43727016        43727472        457     110     0.195900992758698       0.732907267710591       -0.537006274951893      -515.845806057142
+
+# 输出文件格式：
+# output bed file format: <chr> <start> <end> <strand>
+#   chr20       23015717        23016171        -
+#   chr6        107955994       107956304       +
+#   chr20       43727016        43727472        +
+#   chr11       2721711 2722086 -
+#   chrX        70272856        70273385        +
+#   chr15       25018175        25018449        +
+#   chr6        10720835        10721133        +
+
+
+#! /path/to/Rscript
+# Note:
+  # 为 每个位点或DMR 添加随机正负链信息（可能不合理，但目前尚未找到合适的输入格式的文件，暂且先用）；
+  # 注意这里的sample函数的使用，这里的"rownames"不能替换为nrow，rownames>这里代表着总共有nrow个不同的数值
+
+dss_DMRs_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/single-8-DMRs/"
+setwd(dss_DMRs_path)
+bed_format_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/DSS_DMR_To_annotate_bed/single-8-DMRs_To_annotate_bed/"
+txtlist <- list.files(path = dss_DMRs_path, pattern = "dmrs*")
+txtlist
+
+
+for (i in 1:length(txtlist)){
+  a <- read.table(file=gzfile(txtlist[i]), header=T)
+  a$random_strand <- sample(c("+","-"),length(rownames(a)),replace=T)
+  bed_format <- a[, c("chr", "start", "end", "random_strand")]
+  # note the string split character!
+  file_ID <- unlist(strsplit(txtlist[i], split = ".txt"))
+  bed_format_filename = paste0("annotate_", file_ID[1], ".bed")
+  write.table(bed_format, file.path(bed_format_path, bed_format_filename), sep = "\t", row.names=F, col.names=F, quote = F)
+}
+
+
+
+
+
+#--------------------------------------------------------------------------->
+# 第三步：使用软件注释基因组
+#--------------------------------------------------------------------------->
+
+# 这里以Homer annotatePeak为注释软件为例
+
+#!/bin/bash
+# NOTE：
+# 1. check the "config.txt" if have the reference genome path:  /home/lianzhiwei/miniconda3/envs/rrbs/share/homer-4.10-0/.//config.txt
+# 2. Please download the reference genome first, it is  time consuming! Command: perl  /home/lianzhiwei/miniconda3/envs/rrbs/share/homer-4.10-0/.//configureHomer.pl -install hg19
+
+# conda activate rrbs
+date
+
+peak_file_path=/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/DSS_DMR_To_annotate_bed/single-8-DMRs_To_annotate_bed
+
+homer_Anno_ouptut=/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/Homer_annotatePeak/single-8-DMRs_annotate_result
+
+for sample in $(ls ${peak_file_path} |grep .bed |cut -d "." -f  1);do
+annotatePeaks.pl  ${peak_file_path}/${sample}.bed hg19  >${homer_Anno_ouptut}/${sample}.xls
+done
+
+date
