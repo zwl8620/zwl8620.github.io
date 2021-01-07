@@ -386,20 +386,20 @@ showOneDMR(dmrs[1,], BSobj)
   # 注意这里的sample函数的使用，这里的"rownames"不能替换为nrow，rownames>这里代表着总共有nrow个不同的数值
 
 input_file_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/single-8-DMRs/"
-setwd(dss_DMRs_path)
 output_file_path <- "/mnt/MD3400/data003/lianzhiwei/01project/03WGBS_ALL/DMR_analysis/DSS_package/results/DSS_DMR_To_annotate_bed/single-8-DMRs_To_annotate_bed/"
 txtlist <- list.files(path = input_file_path, pattern = ".txt")
 txtlist
 
-
+setwd(input_file_path)
 for (i in 1:length(txtlist)){
-  a <- read.table(file=gzfile(txtlist[i]), header=T)
+  a <- read.table(file=txtlist[i], header=T)
   a$random_strand <- sample(c("+","-"),length(rownames(a)),replace=T)
   bed_format <- a[, c("chr", "start", "end", "random_strand")]
   # note the string split character!
   file_ID <- unlist(strsplit(txtlist[i], split = ".txt"))
   bed_format_filename = paste0("annotate_", file_ID[1], ".bed")
-  write.table(bed_format, file.path(output_file_path, bed_format_filename), sep = "\t", row.names=F, col.names=F, quote = F)
+  # write.table(bed_format, file.path(output_file_path, bed_format_filename), sep = "\t", row.names=F, col.names=F, quote = F)
+  write.table(bed_format, file=bed_format_filename, sep = "\t", row.names=F, col.names=F, quote = F)
 }
 
 
